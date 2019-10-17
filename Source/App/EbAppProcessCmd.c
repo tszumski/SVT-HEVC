@@ -970,6 +970,53 @@ void SendQpOnTheFly(
     return;
 }
 
+void fillSegmentOv(
+    EbConfig_t                *config,
+    EB_BUFFERHEADERTYPE       *headerPtr)
+{
+    uint32_t pictureWidthInLcu = (config->sourceWidth + EB_SEGMENT_BLOCK_SIZE - 1) / EB_SEGMENT_BLOCK_SIZE;
+    uint32_t pictureHeightInLcu = (config->sourceHeight + EB_SEGMENT_BLOCK_SIZE - 1) / EB_SEGMENT_BLOCK_SIZE;
+    uint32_t lcuTotalCount = pictureWidthInLcu * pictureHeightInLcu;
+
+    memset(headerPtr->segmentOvPtr, 0, sizeof(SegmentOverride_t) * lcuTotalCount);
+    //read values from file
+    int32_t value = 0;
+    int32_t result = 0;
+
+    for (uint32_t blockIdx = 0; blockIdx < lcuTotalCount; blockIdx++) {
+        int32_t invalidFile = 0;
+        do {
+#if __linux
+            result = fscanf(config->segmentOvFile, "%d", &value);
+#else
+            result = fscanf_s(config->segmentOvFile, "%d", &value);
+#endif
+            if (result == 1) //QP read correctly
+                break;
+
+            if (result == 0) //line is corrupted skip it
+#if __linux
+                result = fscanf(config->segmentOvFile, "%*[^\n]\n");
+#else
+                result = fscanf_s(config->segmentOvFile, "%*[^\n]\n");
+#endif
+            if (result == -1) {//eof
+                fseek(config->segmentOvFile, 0, SEEK_SET);
+                invalidFile++;
+                if (invalidFile > 1) {
+                    printf("\nSVT [Warning]: segment override File did not contain any valid QPs");
+                }
+            }
+        } while (result <= 0 && invalidFile < 2);
+
+        if (invalidFile > 1)
+            break;
+
+        headerPtr->segmentOvPtr[blockIdx].ovFlags = EB_QP_OV_DIRECT | EB_DENSITY_QP_OV;// | EB_DENSITY_QP_OV | EB_TU_FILTER_OV;
+        headerPtr->segmentOvPtr[blockIdx].qpOv = CLIP3(0, 51, value);
+    }
+}
+
 void SendNaluOnTheFly(
     EbConfig_t                  *config,
     EB_BUFFERHEADERTYPE        *headerPtr)
@@ -1178,6 +1225,11 @@ APPEXITCONDITIONTYPE ProcessInputBuffer(EbConfig_t *config, EbAppContext_t *appC
                 printf("\n Warning : Dolby vision RPU not parsed for POC %" PRId64 "\t", headerPtr->pts);
             }
         }
+
+        if (config->segmentOvEnabled && config->segmentOvFile)
+            fillSegmentOv(
+                config,
+                headerPtr);
 
         // Send the picture
         EbH265EncSendPicture(componentHandle, headerPtr);
