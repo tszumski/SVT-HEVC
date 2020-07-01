@@ -933,8 +933,6 @@ void* PictureDecisionKernel(void *inputPtr)
 						pictureControlSetPtr->sliceType = pictureType;
 						((EbPaReferenceObject_t*)pictureControlSetPtr->paReferencePictureWrapperPtr->objectPtr)->sliceType = pictureControlSetPtr->sliceType;
 
-
-
 						switch (pictureType) {
 
 						case EB_I_PICTURE:
@@ -998,6 +996,14 @@ void* PictureDecisionKernel(void *inputPtr)
 						pictureControlSetPtr->predStructIndex = (EB_U8)encodeContextPtr->predStructPosition;
 						pictureControlSetPtr->temporalLayerIndex = (EB_U8)predPositionPtr->temporalLayerIndex;
 						pictureControlSetPtr->isUsedAsReferenceFlag = predPositionPtr->isReferenced;
+
+                        printf("picNumber=%d", pictureControlSetPtr->pictureNumber);
+                        printf("\tpictureType=%d", pictureControlSetPtr->sliceType);
+                        printf("\ttempLayer=%d", pictureControlSetPtr->temporalLayerIndex);
+                        printf("\tpredStructPos=%d", pictureControlSetPtr->predStructIndex);
+                        printf("\tusedAsRefference=%d", pictureControlSetPtr->isUsedAsReferenceFlag);
+                        printf("\tnonRef = %d\n", pictureControlSetPtr->nalUnit == NAL_UNIT_CODED_SLICE_TRAIL_N);
+
 
                         pictureControlSetPtr->disableTmvpFlag = sequenceControlSetPtr->staticConfig.unrestrictedMotionVector == 0 ? EB_TRUE : EB_FALSE;
 
